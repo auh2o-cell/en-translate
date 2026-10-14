@@ -1,0 +1,6 @@
+name = "deepseek-proxy"
+main = "_worker.js"
+compatibility_date = "2024-01-01"
+
+# 部署后终端会显示形如 https://deepseek-proxy.你的账号.workers.dev 的地址，
+# 把它填到 index.html 顶部的 API_BASE 常量里即可。

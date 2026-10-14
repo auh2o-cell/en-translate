@@ -1,0 +1,12 @@
+# 本地 API key，绝不能提交到公开仓库
+config.json
+
+# Python 运行缓存
+__pycache__/
+*.pyc
+
+# 截图等临时文件
+截图/
+
+# Cloudflare wrangler 缓存（含账号信息，不应提交）
+.wrangler/

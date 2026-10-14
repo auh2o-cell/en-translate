@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语翻译工具</title>
+<style>
+  :root {
+    --ink: #2b2b2b;
+    --muted: #8a8a8a;
+    --line: #e5e5e5;
+    --accent: #f5c33b;        /* 记号笔黄 */
+    --accent-soft: #fff6d6;
+    --panel: #faf9f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: #f2f2f0;
+  }
+
+  /* 顶部吸顶区：工具栏 + 标签栏 */
+  .topbar { position: sticky; top: 0; z-index: 10; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 18px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+  }
+  .toolbar h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .toolbar button {
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .toolbar button:hover { background: #f5f5f5; }
+  .toolbar button.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #status { font-size: 12px; color: var(--muted); }
+
+  /* 标签栏 */
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 18px;
+    background: #f7f7f5;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .tab.active { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+  .tab-title { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  .tab-close { color: #bbb; font-size: 14px; line-height: 1; padding: 0 2px; border-radius: 3px; }
+  .tab-close:hover { color: #e33; background: #fdd; }
+  .tab-add {
+    border: 1px dashed var(--line);
+    background: none;
+    color: var(--muted);
+    font-size: 15px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .tab-add:hover { border-color: var(--accent); color: #b07a00; background: var(--accent-soft); }
+
+  /* 输入区 */
+  .input-area { padding: 14px 18px 0; max-width: 1100px; margin: 0 auto; }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    background: #fff;
+    color: var(--ink);
+  }
+  textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 2px 0; }
+
+  /* 主区：文章 */
+  .main { max-width: 1100px; margin: 14px auto 40px; padding: 0 18px; }
+  .article { display: flex; flex-direction: column; gap: 12px; }
+
+  /* 段落：左侧正文 + 右侧本段注释，左右一一对应 */
+  .para {
+    display: flex;
+    gap: 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
+  .para-body { flex: 1; min-width: 0; }
+  .para .en { font-size: 17px; line-height: 1.7; }
+  .para .zh { font-size: 14px; color: #555; line-height: 1.7; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+
+  mark {
+    background: var(--accent);
+    color: #1a1a1a;
+    padding: 0 2px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .en .w { border-radius: 3px; cursor: pointer; }
+  .en .w:hover { background: #ffe9a8; }
+
+  /* 段落右侧注释区 */
+  .para-notes {
+    width: 360px;
+    flex-shrink: 0;
+    padding: 10px 12px;
+  }
+  .para-notes.has {
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    border-radius: 0 6px 6px 0;
+  }
+  .para-notes h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  .para-notes ul { list-style: none; margin: 0; padding: 0; }
+  .para-notes li {
+    padding: 6px 9px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    background: #fff;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .para-notes li:last-child { margin-bottom: 0; }
+  .para-notes li:hover { background: var(--accent-soft); }
+  .para-notes li .w { font-weight: 600; color: #b07a00; margin-right: 6px; }
+  .para-notes li .pos { color: #999; font-size: 11.5px; font-style: italic; margin-right: 6px; }
+  .para-notes li .m { color: #555; }
+
+  /* 注释较多时两列排布，缩短注释栏高度 */
+  .para-notes.cols ul {
+    columns: 2;
+    column-gap: 10px;
+  }
+  .para-notes.cols li {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+  }
+
+  /* 开关状态 */
+  body.translate-hidden .zh { display: none; }
+  body.notes-hidden .para-notes { display: none; }
+  body.highlight-hidden mark { background: transparent; padding: 0; }
+
+  /* 打印样式（导出 PDF）：段落与注释同样左右对应 */
+  @media print {
+    .topbar, .input-area { display: none !important; }
+    body { background: #fff; }
+    .main { max-width: 100%; margin: 0; padding: 0; }
+    .article { display: block; }
+    .para {
+      display: flex;
+      border: none;
+      padding: 0 0 12px;
+      margin: 0 0 12px;
+      break-inside: avoid;
+    }
+    .para-notes {
+      width: 32%;
+      flex-shrink: 0;
+      padding: 0 0 0 12px;
+    }
+    .para-notes.has {
+      border: none;
+      border-left: 1px solid #ddd;
+      background: none;
+      border-radius: 0;
+    }
+    .para-notes h3 { margin-top: 0; }
+    .para-notes li { border: none; border-bottom: 1px solid #ddd; border-radius: 0; }
+    .para-notes ul { columns: 1; }
+    body.highlight-hidden mark { background: transparent; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <header class="toolbar">
+      <h1>英语翻译工具</h1>
+      <button id="btnTranslate" class="primary">翻译</button>
+      <button id="btnClear">清空</button>
+      <button id="btnSave">暂存</button>
+      <button id="btnRestore">恢复</button>
+      <button id="btnExport">导出 PDF</button>
+      <div class="spacer"></div>
+      <label><input type="checkbox" id="toggleTranslate" checked> 翻译</label>
+      <label><input type="checkbox" id="toggleNotes" checked> 注释栏</label>
+      <label><input type="checkbox" id="toggleHighlight" checked> 高亮</label>
+      <span id="status"></span>
+    </header>
+    <div class="tabs" id="tabsBar"></div>
+  </div>
+
+  <div class="input-area">
+    <textarea id="inputText" placeholder="在这里粘贴英文文章，点「翻译」…"></textarea>
+    <div class="hint">单击文章中的任意单词即可查词并添加注释；单击已高亮的词（或右侧注释）可删除。标签栏可多篇并行翻译，「暂存/恢复」可保存进度。</div>
+  </div>
+
+  <div class="main">
+    <div id="article" class="article"></div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // 后端接口地址：
+  // 本地开发留空（走 server.py 的 /api/deepseek）；
+  // 部署到 GitHub Pages 时填 Cloudflare Worker 域名，例如 'https://deepseek-proxy.你的账号.workers.dev'
+  const API_BASE = 'https://deepseek-proxy.hoang-phuong2ec6ca.workers.dev';
+
+  const STORAGE_KEY = 'en-translate-tabs-v1';
+
+  const inputText = document.getElementById('inputText');
+  const article = document.getElementById('article');
+  const status = document.getElementById('status');
+  const tabsBar = document.getElementById('tabsBar');
+
+  const btnTranslate = document.getElementById('btnTranslate');
+  const btnClear = document.getElementById('btnClear');
+  const btnSave = document.getElementById('btnSave');
+  const btnRestore = document.getElementById('btnRestore');
+  const btnExport = document.getElementById('btnExport');
+  const toggleTranslate = document.getElementById('toggleTranslate');
+  const toggleNotes = document.getElementById('toggleNotes');
+  const toggleHighlight = document.getElementById('toggleHighlight');
+
+  // 多标签状态：每篇文章一个 tab，各自独立的原文/译文/注释
+  const state = {
+    tabs: [],        // {id, title, text, paragraphs:[{text, marks:[]}], translations:[]}
+    activeId: null,
+    nextTabId: 1,
+    nextMarkId: 1,
+  };
+
+  function newTab() {
+    return { id: state.nextTabId++, title: '', text: '', paragraphs: [], translations: [] };
+  }
+  function activeTab() {
+    return state.tabs.find(t => t.id === state.activeId) || null;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  function setStatus(msg) {
+    status.textContent = msg || '';
+  }
+
+  // 按空行切分段落，段内换行合并为空格
+  function splitParagraphs(text) {
+    return text.split(/\n\s*\n/).map(s => s.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
+  }
+
+  async function callAI(messages, jsonMode) {
+    const res = await fetch(API_BASE + '/api/deepseek', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, json_mode: !!jsonMode }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '请求失败');
+    return data.content;
+  }
+
+  // ---------- 标签栏 ----------
+  function tabLabel(t) {
+    return t.title || ('文章 ' + t.id);
+  }
+
+  function renderTabs() {
+    tabsBar.innerHTML = '';
+    state.tabs.forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'tab' + (t.id === state.activeId ? ' active' : '');
+      d.dataset.id = t.id;
+      d.title = '双击重命名';
+      d.innerHTML = '<span class="tab-title">' + escapeHtml(tabLabel(t)) + '</span>' +
+        '<span class="tab-close" title="关闭">×</span>';
+      tabsBar.appendChild(d);
+    });
+    const add = document.createElement('button');
+    add.className = 'tab-add';
+    add.textContent = '＋';
+    add.title = '新建文章';
+    tabsBar.appendChild(add);
+  }
+
+  function addTab() {
+    const t = newTab();
+    state.tabs.push(t);
+    state.activeId = t.id;
+    inputText.value = '';
+    renderTabs();
+    renderArticle();
+  }
+
+  function switchTab(id) {
+    if (state.activeId === id) return;
+    state.activeId = id;
+    const t = activeTab();
+    inputText.value = t ? t.text : '';
+    renderTabs();
+    renderArticle();
+  }
+
+  function closeTab(id) {
+    const i = state.tabs.findIndex(t => t.id === id);
+    if (i < 0) return;
+    state.tabs.splice(i, 1);
+    if (!state.tabs.length) {
+      const t = newTab();
+      state.tabs.push(t);
+      state.activeId = t.id;
+    } else if (state.activeId === id) {
+      state.activeId = state.tabs[Math.min(i, state.tabs.length - 1)].id;
+    }
+    const t = activeTab();
+    inputText.value = t ? t.text : '';
+    renderTabs();
+    renderArticle();
+  }
+
+  function renameTab(id) {
+    const t = state.tabs.find(x => x.id === id);
+    if (!t) return;
+    const name = prompt('给这篇文章命名：', t.title || '');
+    if (name === null) return;
+    t.title = name.trim();
+    renderTabs();
+  }
+
+  // ---------- 翻译 ----------
+  // 翻译单个段落，返回纯中文译文（不套 JSON，避免解析问题）
+  async function translateOne(text) {
+    const user = '请把下面这段英文翻译成中文。\n要求：只输出这段的中文译文本身，不要加任何解释、序号、前缀或引号。\n\n英文：\n' + text;
+    const content = await callAI([
+      { role: 'system', content: '你是专业的中英翻译助手，译文要地道、准确、自然。' },
+      { role: 'user', content: user },
+    ], false);
+    return content.trim().replace(/^["'「『\s]+/, '').replace(/["'」』\s]+$/, '');
+  }
+
+  async function translate() {
+    const t = activeTab();
+    if (!t) return;
+    t.text = inputText.value;
+    const paras = splitParagraphs(t.text);
+    if (!paras.length) { setStatus('请先粘贴英文文章'); return; }
+    setStatus('翻译中…');
+    btnTranslate.disabled = true;
+    try {
+      const n = paras.length;
+      // 逐段翻译：每段独立请求，结果按下标一一对应，从根上避免段落错位
+      const translations = new Array(n);
+      const BATCH = 4;   // 每批并发段数，避免同时请求过多
+      for (let i = 0; i < n; i += BATCH) {
+        const batch = paras.slice(i, i + BATCH);
+        const results = await Promise.all(batch.map(p => translateOne(p)));
+        results.forEach((r, k) => { translations[i + k] = r; });
+        setStatus('翻译中… ' + Math.min(i + BATCH, n) + '/' + n + ' 段');
+      }
+
+      t.paragraphs = paras.map(x => ({ text: x, marks: [] }));
+      t.translations = translations.map(s => String(s).trim());
+      if (!t.title) t.title = paras[0].slice(0, 14) + (paras[0].length > 14 ? '…' : '');
+      setStatus('');
+      renderTabs();
+      renderArticle();
+    } catch (err) {
+      alert('翻译失败：' + err.message);
+      setStatus('');
+    } finally {
+      btnTranslate.disabled = false;
+    }
+  }
+
+  // ---------- 查词 ----------
+  async function lookup(sentence, word) {
+    const user = '句子：' + sentence + '\n单词：' + word + '\n\n' +
+      '请判断这个单词是否属于某个常见词组（短语动词、固定搭配等）。若是，输出完整词组；否则输出单词本身。' +
+      '然后给出它的词性和在当前语境下的简洁中文释义。\n\n' +
+      '严格按 JSON 格式回复，不要输出任何其他内容：{"phrase":"...","pos":"...","meaning":"..."}' +
+      '（pos 用英文缩写，如 n. v. adj. adv. prep. conj. pron.）。';
+    const content = await callAI([
+      { role: 'system', content: '你是英语词典助手，释义简洁准确。' },
+      { role: 'user', content: user },
+    ], true);
+    try {
+      const obj = JSON.parse(content);
+      return { phrase: obj.phrase || word, pos: obj.pos || '', meaning: obj.meaning || '' };
+    } catch (e) {
+      return { phrase: word, pos: '', meaning: content.trim() };
+    }
+  }
+
+  // ---------- 渲染 ----------
+  // 把 [from, to) 区间的文本按词包上 <span class="w" data-off="...">，便于单击定位
+  function renderWords(text, from, to) {
+    const s = text.slice(from, to);
+    const re = /([A-Za-z0-9'’-]+)/g;
+    let html = '';
+    let last = 0, m;
+    while ((m = re.exec(s))) {
+      html += escapeHtml(s.slice(last, m.index));
+      html += '<span class="w" data-off="' + (from + m.index) + '">' + escapeHtml(m[1]) + '</span>';
+      last = m.index + m[1].length;
+    }
+    html += escapeHtml(s.slice(last));
+    return html;
+  }
+
+  function renderEn(para) {
+    const text = para.text;
+    const marks = para.marks.slice().sort((a, b) => a.start - b.start);
+    let html = '';
+    let pos = 0;
+    for (const m of marks) {
+      html += renderWords(text, pos, m.start);
+      html += '<mark data-id="' + m.id + '">' + renderWords(text, m.start, m.end) + '</mark>';
+      pos = m.end;
+    }
+    html += renderWords(text, pos, text.length);
+    return html;
+  }
+
+  // 某一段的注释列表（只属于本段，实现与正文左右对应）；注释超过 4 条时两列排布
+  function renderParaNotes(para) {
+    if (!para.marks.length) {
+      return '<div class="para-notes"></div>';
+    }
+    const cols = para.marks.length > 4 ? ' cols' : '';
+    const lis = para.marks.map(n => {
+      const pos = n.pos ? '<span class="pos">' + escapeHtml(n.pos) + '</span>' : '';
+      return '<li data-id="' + n.id + '" title="点击删除这条注释">' +
+        '<span class="w">' + escapeHtml(n.phrase) + '</span>' + pos +
+        '<span class="m">' + escapeHtml(n.meaning) + '</span></li>';
+    }).join('');
+    return '<div class="para-notes has' + cols + '"><h3>单词注释</h3><ul>' + lis + '</ul></div>';
+  }
+
+  function renderArticle() {
+    const t = activeTab();
+    const paras = t ? t.paragraphs : [];
+    const trans = t ? t.translations : [];
+    article.innerHTML = '';
+    paras.forEach((p, i) => {
+      const div = document.createElement('div');
+      div.className = 'para';
+      const body = '<div class="para-body">' +
+        '<div class="en">' + renderEn(p) + '</div>' +
+        '<div class="zh">' + escapeHtml(trans[i] || '') + '</div>' +
+        '</div>';
+      div.innerHTML = body + renderParaNotes(p);
+      article.appendChild(div);
+    });
+  }
+
+  function removeMark(id) {
+    const t = activeTab();
+    if (!t) return;
+    for (const p of t.paragraphs) {
+      const i = p.marks.findIndex(m => m.id === id);
+      if (i >= 0) p.marks.splice(i, 1);
+    }
+    renderArticle();
+  }
+
+  // 查词 + 高亮 + 在该段右侧加注释
+  async function doLookup(para, start, end, word) {
+    setStatus('查询「' + word + '」…');
+    try {
+      const result = await lookup(para.text, word);
+      const phrase = result.phrase || word;
+      const meaning = result.meaning || '';
+      const pos = result.pos || '';
+
+      let hlStart = start, hlEnd = end;
+      if (phrase !== word) {
+        const i = closestIndex(para.text, phrase, start);
+        if (i >= 0) { hlStart = i; hlEnd = i + phrase.length; }
+      }
+
+      // 去掉与新区间重叠的旧标记
+      para.marks = para.marks.filter(m => !(m.start < hlEnd && m.end > hlStart));
+      const id = state.nextMarkId++;
+      para.marks.push({ id, start: hlStart, end: hlEnd, phrase, pos, meaning });
+      renderArticle();
+      setStatus('');
+    } catch (err) {
+      alert('查词失败：' + err.message);
+      setStatus('');
+    }
+  }
+
+  // 在 text 中找最接近 near 的 phrase 位置
+  function closestIndex(text, phrase, near) {
+    let idx = text.indexOf(phrase);
+    if (idx < 0) return -1;
+    let best = idx, bestDist = Math.abs(idx - near), from = idx;
+    while ((idx = text.indexOf(phrase, from + 1)) !== -1) {
+      const d = Math.abs(idx - near);
+      if (d < bestDist) { best = idx; bestDist = d; }
+      from = idx;
+    }
+    return best;
+  }
+
+  // ---------- 交互：单击单词查词，单击高亮词/注释删除 ----------
+  function onWordClick(w) {
+    const t = activeTab();
+    if (!t) return;
+    const paraEl = w.closest('.para');
+    const idx = Array.prototype.indexOf.call(article.children, paraEl);
+    const para = t.paragraphs[idx];
+    if (!para) return;
+    const start = parseInt(w.dataset.off, 10);
+    const word = w.textContent;
+    doLookup(para, start, start + word.length, word);
+  }
+
+  function handleClick(e) {
+    const noteLi = e.target.closest('.para-notes li[data-id]');
+    if (noteLi) { removeMark(parseInt(noteLi.dataset.id, 10)); return; }
+    const mark = e.target.closest('mark');
+    if (mark) { removeMark(parseInt(mark.dataset.id, 10)); return; }
+    const w = e.target.closest('.en .w');
+    if (w) onWordClick(w);
+  }
+
+  // ---------- 暂存 / 恢复 ----------
+  function save() {
+    const t = activeTab();
+    if (t) t.text = inputText.value;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      setStatus('已暂存 ' + state.tabs.length + ' 篇');
+    } catch (e) {
+      setStatus('暂存失败：' + e.message);
+    }
+  }
+
+  function restore() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { setStatus('没有可恢复的暂存'); return; }
+    try {
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data.tabs) || !data.tabs.length) throw new Error('空数据');
+      state.tabs = data.tabs;
+      state.nextTabId = data.nextTabId || (state.tabs.length + 1);
+      state.nextMarkId = data.nextMarkId || 1;
+      state.activeId = (data.activeId && state.tabs.some(x => x.id === data.activeId))
+        ? data.activeId : state.tabs[0].id;
+      const t = activeTab();
+      inputText.value = t ? t.text : '';
+      renderTabs();
+      renderArticle();
+      setStatus('已恢复 ' + state.tabs.length + ' 篇');
+    } catch (e) {
+      setStatus('恢复失败：暂存数据无效');
+    }
+  }
+
+  // ---------- 事件绑定 ----------
+  btnTranslate.addEventListener('click', translate);
+  btnClear.addEventListener('click', () => {
+    const t = activeTab();
+    if (!t) return;
+    t.text = '';
+    t.paragraphs = [];
+    t.translations = [];
+    t.title = '';
+    inputText.value = '';
+    renderTabs();
+    renderArticle();
+    setStatus('');
+  });
+  btnSave.addEventListener('click', save);
+  btnRestore.addEventListener('click', restore);
+  btnExport.addEventListener('click', () => window.print());
+
+  inputText.addEventListener('input', () => {
+    const t = activeTab();
+    if (t) t.text = inputText.value;
+  });
+
+  tabsBar.addEventListener('click', e => {
+    const close = e.target.closest('.tab-close');
+    if (close) { closeTab(parseInt(close.closest('.tab').dataset.id, 10)); return; }
+    const tab = e.target.closest('.tab');
+    if (tab) { switchTab(parseInt(tab.dataset.id, 10)); return; }
+    if (e.target.closest('.tab-add')) addTab();
+  });
+  tabsBar.addEventListener('dblclick', e => {
+    if (e.target.closest('.tab-close')) return;
+    const tab = e.target.closest('.tab');
+    if (tab) renameTab(parseInt(tab.dataset.id, 10));
+  });
+
+  toggleTranslate.addEventListener('change', () =>
+    document.body.classList.toggle('translate-hidden', !toggleTranslate.checked));
+  toggleNotes.addEventListener('change', () =>
+    document.body.classList.toggle('notes-hidden', !toggleNotes.checked));
+  toggleHighlight.addEventListener('change', () =>
+    document.body.classList.toggle('highlight-hidden', !toggleHighlight.checked));
+  article.addEventListener('click', handleClick);
+
+  // ---------- 初始化 ----------
+  addTab();
+  if (localStorage.getItem(STORAGE_KEY)) {
+    setStatus('检测到上次暂存，点「恢复」载入');
+  }
+})();
+</script>
+</body>
+</html>

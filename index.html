@@ -215,6 +215,36 @@
     .para-notes ul { columns: 1; }
     body.highlight-hidden mark { background: transparent; }
   }
+
+  /* 手机端自适应（≤640px）：正文在上、注释在下，工具栏换行 */
+  @media (max-width: 640px) {
+    .toolbar {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 12px;
+    }
+    .toolbar h1 { flex: 1 0 100%; font-size: 15px; }
+    .toolbar label { font-size: 12px; }
+
+    .input-area { padding: 12px 12px 0; }
+    .main { padding: 0 12px; margin-top: 10px; }
+
+    .para {
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px 14px;
+    }
+    .para-notes {
+      width: 100%;
+      padding: 10px 0 0;
+    }
+    .para-notes.has {
+      border-left: none;
+      border-top: 1px solid var(--line);
+      border-radius: 0 0 6px 6px;
+    }
+    .para-notes.cols ul { columns: 1; }
+  }
 </style>
 </head>
 <body>
